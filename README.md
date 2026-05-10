@@ -11,7 +11,7 @@ Agent 的 prompt / skill / MCP 由 Agent 定义文件和 IDE 自行管理。Pipe
 ## 安装
 
 ```bash
-npm install -D ai-pipeline
+npm install -D @toheart/ai-pipeline
 ```
 
 ## 快速开始
@@ -28,7 +28,7 @@ npx ai-pipeline init codex         # Codex
 
 ```typescript
 // .pipeline/feature.ts
-import { pipeline, stage, gate, parallel } from "ai-pipeline";
+import { pipeline, stage, gate, parallel } from "@toheart/ai-pipeline";
 
 export default pipeline("feature", async (ctx) => {
   await stage("explore", { agent: "explorer" });

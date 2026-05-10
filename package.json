@@ -1,5 +1,5 @@
 {
-  "name": "ai-pipeline",
+  "name": "@toheart/ai-pipeline",
   "version": "0.3.0",
   "description": "跨 IDE 的 AI 编排 SDK —— 用 TypeScript 或 YAML 定义 AI Agent 流水线",
   "type": "module",
@@ -20,6 +20,13 @@
     "examples/",
     "dashboard/dist/"
   ],
+  "publishConfig": {
+    "registry": "https://npm.pkg.github.com"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/toheart/ai-pipeline.git"
+  },
   "scripts": {
     "generate": "tsx bin/ai-pipeline.ts generate",
     "serve": "tsx bin/ai-pipeline.ts serve",

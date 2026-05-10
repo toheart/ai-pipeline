@@ -277,7 +277,7 @@ export async function runInit(args: string[]): Promise<void> {
     writeFileSync(
       examplePipeline,
       [
-        `import { pipeline, stage, gate, parallel } from "ai-pipeline";`,
+        `import { pipeline, stage, gate, parallel } from "@toheart/ai-pipeline";`,
         ``,
         `export default pipeline("feature", async (ctx) => {`,
         `  await stage("explore", { agent: "explorer" });`,
