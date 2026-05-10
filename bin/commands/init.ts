@@ -7,10 +7,11 @@
 
 import { existsSync, mkdirSync, copyFileSync, writeFileSync, readFileSync, readdirSync } from "node:fs";
 import { join, dirname, resolve } from "node:path";
+import { fileURLToPath } from "node:url";
 import { getAdapterPaths, isValidAdapter, VALID_ADAPTERS, type AdapterName } from "../../src/adapters/paths.ts";
 
 function getPackageRoot(): string {
-  return resolve(dirname(new URL(import.meta.url).pathname), "../..");
+  return resolve(dirname(fileURLToPath(import.meta.url)), "../..");
 }
 
 function ensureDir(projectRoot: string, dir: string): boolean {
@@ -193,7 +194,7 @@ export async function runInit(args: string[]): Promise<void> {
   console.log(`│  Output:   ${paths.configRoot}/`);
   console.log(`╰──────────────────────────────────────────────────────╯`);
 
-  const adapterDir = join(pkgRoot, "adapters", adapter);
+  const adapterDir = join(pkgRoot, "src", "adapters", adapter);
   if (!existsSync(adapterDir)) {
     console.error(`Adapter not found: ${adapterDir}`);
     process.exit(1);
@@ -261,6 +262,13 @@ export async function runInit(args: string[]): Promise<void> {
         console.log(`  deployed templates/${f}`);
       }
     }
+  }
+
+  // 确保 .pipeline/ 目录被 Node 识别为 ESM 模块
+  const pipelinePkg = join(projectRoot, ".pipeline", "package.json");
+  if (!existsSync(pipelinePkg)) {
+    writeFileSync(pipelinePkg, JSON.stringify({ type: "module" }, null, 2) + "\n");
+    console.log("  created .pipeline/package.json (ESM marker)");
   }
 
   // 创建示例 pipeline 定义

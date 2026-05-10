@@ -4,6 +4,7 @@
 
 import { parseArgs } from "node:util";
 import { resolve, dirname, join } from "node:path";
+import { fileURLToPath } from "node:url";
 
 export async function runServe(args: string[]): Promise<void> {
   const { values } = parseArgs({
@@ -17,7 +18,7 @@ export async function runServe(args: string[]): Promise<void> {
   });
 
   const port = values.port ?? "19090";
-  const pkgRoot = resolve(dirname(new URL(import.meta.url).pathname), "../..");
+  const pkgRoot = resolve(dirname(fileURLToPath(import.meta.url)), "../..");
   const dashboardDir = join(pkgRoot, "dashboard", "dist");
 
   process.env.PIPELINE_PORT = port;

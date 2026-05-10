@@ -5,15 +5,10 @@
  * 输出目录根据 --adapter 动态分叉到对应 IDE 的配置目录。
  */
 
-import { resolve, basename, dirname, join } from "node:path";
+import { resolve, basename, join } from "node:path";
 import { pathToFileURL } from "node:url";
 import { writeFileSync, mkdirSync, readdirSync, existsSync } from "node:fs";
 import { parseArgs } from "node:util";
-import { getRegistry } from "../../src/sdk/registry.ts";
-import { dryRunPipeline, listPipelineDefs } from "../../src/sdk/pipeline.ts";
-import type { PipelineManifest, ManifestStageDef } from "../../src/engine/types.ts";
-import { generateOrchestratorSkill } from "../../src/generator/skill-generator.ts";
-import { getAdapterPaths, isValidAdapter } from "../../src/adapters/paths.ts";
 
 export async function runGenerate(args: string[]): Promise<void> {
   const { values, positionals } = parseArgs({
@@ -27,17 +22,17 @@ export async function runGenerate(args: string[]): Promise<void> {
   });
 
   const adapter = (values.adapter as string) ?? "cursor";
+
+  const { isValidAdapter, getAdapterPaths } = await import("../../src/adapters/paths.ts");
   if (!isValidAdapter(adapter)) {
     console.error(`Unknown adapter: ${adapter}. Valid: cursor, claude-code, codex`);
     process.exit(1);
   }
 
   const adapterPaths = getAdapterPaths(adapter);
-  const projectRoot = process.cwd();
   const manifestsDir = resolve(values["output-dir"] as string ?? adapterPaths.manifestsDir);
   const skillsDir = resolve(adapterPaths.skillsDir);
 
-  // 发现 pipeline 文件
   let sourceFiles: string[] = [];
   if (positionals.length > 0) {
     sourceFiles = positionals.map((f) => resolve(f));
@@ -58,68 +53,70 @@ export async function runGenerate(args: string[]): Promise<void> {
   console.log(`Generating for adapter: ${adapter}`);
   console.log(`Sources: ${sourceFiles.map((f) => basename(f)).join(", ")}`);
 
-  const registry = getRegistry();
-
+  // 先导入用户的 pipeline 文件（会触发 ai-pipeline 包中 SDK 的注册逻辑）
+  // 然后再导入 SDK 工具进行后续处理
   for (const sourceFile of sourceFiles) {
-    registry.enableDryRun();
-
     await import(pathToFileURL(sourceFile).href);
+  }
 
-    const defs = listPipelineDefs();
-    if (defs.length === 0) {
-      console.warn(`No pipeline definitions found in ${basename(sourceFile)}`);
+  const { getRegistry } = await import("../../src/sdk/registry.ts");
+  const { dryRunPipeline, listPipelineDefs } = await import("../../src/sdk/pipeline.ts");
+  const { generateOrchestratorSkill } = await import("../../src/generator/skill-generator.ts");
+
+  const registry = getRegistry();
+  registry.enableDryRun();
+
+  const defs = listPipelineDefs();
+  if (defs.length === 0) {
+    console.warn("No pipeline definitions found.");
+    return;
+  }
+
+  for (const def of defs) {
+    await dryRunPipeline(def);
+
+    const meta = registry.getMeta(def.name);
+    if (!meta) {
+      console.error(`Failed to get meta for pipeline: ${def.name}`);
       continue;
     }
 
-    for (const def of defs) {
-      await dryRunPipeline(def);
+    const manifest: any = {
+      name: meta.name,
+      version: "1.0.0",
+      stages: meta.stages.map(
+        (s: any) => ({
+          name: s.name,
+          agent: s.agent,
+          skill: s.skill,
+          gate: s.gate,
+          gate_description: s.gateDescription,
+          optional: s.optional,
+          parallel: s.parallel,
+          on_fail: s.onFail,
+        }),
+      ),
+      conditionals: [],
+      loops: [],
+      agents: meta.agents,
+      source: sourceFiles.join(", "),
+    };
 
-      const meta = registry.getMeta(def.name);
-      if (!meta) {
-        console.error(`Failed to get meta for pipeline: ${def.name}`);
-        continue;
-      }
+    mkdirSync(manifestsDir, { recursive: true });
+    const manifestPath = join(manifestsDir, `${def.name}.manifest.json`);
+    writeFileSync(manifestPath, JSON.stringify(manifest, null, 2));
+    console.log(`  manifest: ${manifestPath}`);
 
-      // 生成 Manifest
-      const manifest: PipelineManifest = {
-        name: meta.name,
-        version: "1.0.0",
-        stages: meta.stages.map(
-          (s): ManifestStageDef => ({
-            name: s.name,
-            agent: s.agent,
-            skill: s.skill,
-            gate: s.gate,
-            gate_description: s.gateDescription,
-            optional: s.optional,
-            parallel: s.parallel,
-            on_fail: s.onFail,
-          }),
-        ),
-        conditionals: [],
-        loops: [],
-        agents: meta.agents,
-        source: sourceFile,
-      };
+    const skillDir = join(skillsDir, `orchestrator-${def.name}`);
+    mkdirSync(skillDir, { recursive: true });
+    const skillContent = generateOrchestratorSkill(manifest, adapter);
+    const skillPath = join(skillDir, "SKILL.md");
+    writeFileSync(skillPath, skillContent);
+    console.log(`  skill:    ${skillPath}`);
 
-      mkdirSync(manifestsDir, { recursive: true });
-      const manifestPath = join(manifestsDir, `${def.name}.manifest.json`);
-      writeFileSync(manifestPath, JSON.stringify(manifest, null, 2));
-      console.log(`  manifest: ${manifestPath}`);
-
-      // 生成 Orchestrator Skill
-      const skillDir = join(skillsDir, `orchestrator-${def.name}`);
-      mkdirSync(skillDir, { recursive: true });
-      const skillContent = generateOrchestratorSkill(manifest, adapter);
-      const skillPath = join(skillDir, "SKILL.md");
-      writeFileSync(skillPath, skillContent);
-      console.log(`  skill:    ${skillPath}`);
-
-      console.log(`  pipeline "${def.name}": ${manifest.stages.length} stages, ${manifest.agents.length} agents`);
-    }
-
-    registry.reset();
+    console.log(`  pipeline "${def.name}": ${manifest.stages.length} stages, ${manifest.agents.length} agents`);
   }
 
+  registry.reset();
   console.log("\nDone!");
 }
