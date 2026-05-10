@@ -21,7 +21,7 @@ export async function runServe(args: string[]): Promise<void> {
   const pkgRoot = resolve(dirname(fileURLToPath(import.meta.url)), "../..");
   const dashboardDir = join(pkgRoot, "dashboard", "dist");
 
-  process.env.PIPELINE_PORT = port;
+  process.env.PIPELINE_PORT = String(port);
   process.env.DASHBOARD_DIR = dashboardDir;
 
   if (values["templates-dir"]) {

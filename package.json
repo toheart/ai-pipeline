@@ -1,7 +1,7 @@
 {
   "name": "@toheart/ai-pipeline",
   "version": "0.3.0",
-  "description": "跨 IDE 的 AI 编排 SDK —— 用 TypeScript 或 YAML 定义 AI Agent 流水线",
+  "description": "跨 IDE 的 AI 编排 SDK —— Skill 驱动的 AI Agent 流水线编排",
   "type": "module",
   "main": "src/sdk/index.ts",
   "bin": {
@@ -16,9 +16,12 @@
     "bin/",
     "src/",
     "spec/",
+    "scripts/",
+    "references/",
     "templates/",
     "examples/",
-    "dashboard/dist/"
+    "dashboard/dist/",
+    "SKILL.md"
   ],
   "publishConfig": {
     "registry": "https://npm.pkg.github.com"

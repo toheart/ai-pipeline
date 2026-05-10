@@ -349,5 +349,15 @@ ${stageInstructions}
 - 传递完整上下文 —— 调度 SubAgent 时提供足够的 prompt 上下文
 - 汇报进度 —— 每个阶段完成后简要汇报
 - 始终在 SubAgent prompt 开头注入 Agent 定义文件的读取指令
+
+## 参考文档（按需加载）
+
+需要更详细的指导时，读取 ai-pipeline 包中的 references 目录：
+
+| 文件 | 何时读取 |
+|------|----------|
+| \`references/server-api.md\` | 操作 Pipeline Server API 遇到问题时 |
+| \`references/adapter-guide.md\` | 不确定 Agent 调度方式时 |
+| \`references/testing/test-architecture.md\` | qa-test 阶段需要测试分层指导时 |
 `;
 }

@@ -2,23 +2,28 @@
 /**
  * AI Pipeline CLI — 跨 IDE 的 AI 编排 SDK 命令行工具
  *
- * 子命令：
- *   init <adapter>       初始化项目（生成 hooks.json、模板等）
- *   generate [file]      编译 pipeline 定义 → manifest + orchestrator skill
+ * 主命令：
  *   serve [--port]       启动 Pipeline Server + Dashboard
- *   status               查看当前 pipeline 实例状态
+ *
+ * 初始化和编排请通过 ai-pipeline Skill 驱动（参见 SKILL.md）。
+ * 旧命令 init / generate / status 仍可用于向后兼容。
  */
 
-import { parseArgs } from "node:util";
-import { resolve } from "node:path";
+export {};
 
 const HELP = `
 ai-pipeline — 跨 IDE 的 AI 编排 SDK
 
 用法:
+  ai-pipeline serve [--port <port>]              启动 Server + Dashboard
+
+Skill 驱动（推荐）:
+  初始化和编排请通过 ai-pipeline Skill 驱动，参见 SKILL.md。
+  Skill 内部会调用 scripts/ 下的脚本完成扫描、生成等工作。
+
+旧命令（向后兼容）:
   ai-pipeline init <cursor|claude-code|codex>   初始化项目
   ai-pipeline generate [file] [--adapter]        编译 pipeline 定义
-  ai-pipeline serve [--port <port>]              启动 Server + Dashboard
   ai-pipeline status                             查看 pipeline 状态
 
 选项:
@@ -43,19 +48,21 @@ const command = args[0];
 const restArgs = args.slice(1);
 
 switch (command) {
+  case "serve": {
+    const { runServe } = await import("./commands/serve.ts");
+    await runServe(restArgs);
+    break;
+  }
   case "init": {
+    console.warn("[提示] 推荐通过 ai-pipeline Skill 进行初始化。CLI init 仅做向后兼容。");
     const { runInit } = await import("./commands/init.ts");
     await runInit(restArgs);
     break;
   }
   case "generate": {
+    console.warn("[提示] 推荐通过 ai-pipeline Skill 进行生成。CLI generate 仅做向后兼容。");
     const { runGenerate } = await import("./commands/generate.ts");
     await runGenerate(restArgs);
-    break;
-  }
-  case "serve": {
-    const { runServe } = await import("./commands/serve.ts");
-    await runServe(restArgs);
     break;
   }
   case "status": {
