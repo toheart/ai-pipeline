@@ -1,0 +1,14 @@
+node_modules/
+npm-cache/
+*.log
+.DS_Store
+
+# IDE 运行时产物（由 generate/serve 动态生成）
+.cursor/hooks/state/
+.cursor/manifests/
+.cursor/skills/
+.cursor/pipelines/
+
+# dashboard/dist/ 随 npm 包发布，需要 tracked
+# dashboard 构建缓存
+dashboard/tsconfig.tsbuildinfo

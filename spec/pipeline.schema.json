@@ -1,0 +1,98 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://ai-pipeline.dev/schema/pipeline.json",
+  "title": "AI Pipeline Template",
+  "description": "YAML 编排模板的 JSON Schema 定义",
+  "type": "object",
+  "required": ["name", "stages"],
+  "properties": {
+    "name": {
+      "type": "string",
+      "description": "流水线模板名称"
+    },
+    "description": {
+      "type": "string",
+      "description": "模板描述"
+    },
+    "variables": {
+      "type": "object",
+      "description": "模板变量（可在 label / scope 中通过 {var} 引用）",
+      "additionalProperties": { "type": "string" }
+    },
+    "stages": {
+      "type": "array",
+      "description": "阶段列表，按声明顺序执行",
+      "minItems": 1,
+      "items": { "$ref": "#/definitions/Stage" }
+    }
+  },
+  "definitions": {
+    "Stage": {
+      "type": "object",
+      "required": ["name"],
+      "properties": {
+        "name": {
+          "type": "string",
+          "description": "阶段标识符（唯一）"
+        },
+        "label": {
+          "type": "string",
+          "description": "阶段显示名称"
+        },
+        "agent": {
+          "type": "string",
+          "description": "委托执行的 Agent 逻辑名称"
+        },
+        "skill": {
+          "type": "string",
+          "description": "调用的 Skill 名称（与 agent 互斥）"
+        },
+        "gate": {
+          "type": "boolean",
+          "description": "是否为人工检查点",
+          "default": false
+        },
+        "gate_description": {
+          "type": "string",
+          "description": "Gate 的描述文本"
+        },
+        "optional": {
+          "type": "boolean",
+          "description": "是否为可选阶段",
+          "default": false
+        },
+        "parallel": {
+          "type": "array",
+          "description": "并行子任务（与 agent 字段互斥）",
+          "items": { "$ref": "#/definitions/ParallelAgent" }
+        },
+        "on_fail": {
+          "type": "string",
+          "enum": ["retry", "skip", "abort"],
+          "description": "失败策略",
+          "default": "abort"
+        },
+        "retries": {
+          "type": "integer",
+          "description": "重试次数",
+          "minimum": 0,
+          "default": 0
+        }
+      }
+    },
+    "ParallelAgent": {
+      "type": "object",
+      "required": ["agent"],
+      "properties": {
+        "agent": {
+          "type": "string",
+          "description": "Agent 逻辑名称"
+        },
+        "scope": {
+          "type": "string",
+          "description": "作用域限制"
+        }
+      }
+    }
+  }
+}

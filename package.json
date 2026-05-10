@@ -1,0 +1,55 @@
+{
+  "name": "ai-pipeline",
+  "version": "0.3.0",
+  "description": "跨 IDE 的 AI 编排 SDK —— 用 TypeScript 或 YAML 定义 AI Agent 流水线",
+  "type": "module",
+  "main": "src/sdk/index.ts",
+  "bin": {
+    "ai-pipeline": "./bin/ai-pipeline.js"
+  },
+  "exports": {
+    ".": "./src/sdk/index.ts",
+    "./engine": "./src/engine/index.ts",
+    "./spec": "./spec/runtime-interface.ts"
+  },
+  "files": [
+    "bin/",
+    "src/",
+    "spec/",
+    "templates/",
+    "examples/",
+    "dashboard/dist/"
+  ],
+  "scripts": {
+    "generate": "tsx bin/ai-pipeline.ts generate",
+    "serve": "tsx bin/ai-pipeline.ts serve",
+    "status": "tsx bin/ai-pipeline.ts status",
+    "build:dashboard": "cd dashboard && npm run build",
+    "prebuild": "npm run build:dashboard",
+    "test": "tsx --test",
+    "lint": "tsc --noEmit"
+  },
+  "keywords": [
+    "ai",
+    "pipeline",
+    "orchestrator",
+    "cursor",
+    "claude-code",
+    "codex",
+    "agent",
+    "subagent"
+  ],
+  "license": "MIT",
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "dependencies": {
+    "tsx": "^4.19.0",
+    "ws": "^8.18.0"
+  },
+  "devDependencies": {
+    "@types/node": "^25.6.0",
+    "@types/ws": "^8.5.0",
+    "typescript": "^5.8.0"
+  }
+}

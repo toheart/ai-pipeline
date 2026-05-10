@@ -1,0 +1,67 @@
+name: go-react-fullstack
+description: Go + React 全栈编排模板，支持前后端并行
+
+variables:
+  project_name: my-project
+  backend_dir: backend/
+  frontend_dir: frontend/
+  test_dir: tests/integration/
+  api_base: "http://localhost:8080"
+  frontend_url: "http://localhost:3000"
+
+stages:
+  - name: explore
+    label: Explorer
+    agent: explorer
+    optional: true
+
+  - name: propose
+    label: Propose
+    skill: openspec-propose
+
+  - name: review
+    label: Review
+    agent: reviewer
+
+  - name: gate1
+    label: "Gate 1"
+    gate: true
+    gate_description: "确认方案设计"
+
+  - name: implement
+    label: "BE ∥ FE"
+    parallel:
+      - agent: backend-implementer
+        scope: "## Backend Tasks"
+      - agent: frontend-implementer
+        scope: "## Frontend Tasks"
+
+  - name: code-review
+    label: Code Review
+    parallel:
+      - agent: backend-reviewer
+        scope: "{backend_dir}"
+      - agent: frontend-reviewer
+        scope: "{frontend_dir}"
+
+  - name: gate2
+    label: "Gate 2"
+    gate: true
+    gate_description: "确认代码质量"
+
+  - name: qa-test
+    label: QA Test
+    agent: qa-tester
+
+  - name: gate3
+    label: "Gate 3"
+    gate: true
+    gate_description: "确认测试结果"
+
+  - name: integration-test
+    label: Int. Test
+    agent: test-writer
+
+  - name: archive
+    label: Archive
+    skill: openspec-archive
