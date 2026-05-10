@@ -1,14 +1,17 @@
 /**
  * ai-pipeline init <adapter> — 初始化项目
  *
- * 根据目标 IDE 部署 hooks、模板、Agent 骨架等到用户项目中。
- * 输出目录根据 adapter 动态分叉。
+ * 两阶段初始化：
+ *   Phase 1（程序自动）：目录创建、hooks 部署、模板复制等确定性工作
+ *   Phase 2（上下文感知）：扫描项目技术栈，自动生成高质量 Agent 定义和 Pipeline 编排
  */
 
 import { existsSync, mkdirSync, copyFileSync, writeFileSync, readFileSync, readdirSync } from "node:fs";
 import { join, dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { getAdapterPaths, isValidAdapter, VALID_ADAPTERS, type AdapterName } from "../../src/adapters/paths.ts";
+import { scanProject, formatContextSummary } from "../../src/scanner/project-scanner.ts";
+import { generateAgents, generatePipelineDefinition } from "../../src/generator/agent-prompt.ts";
 
 function getPackageRoot(): string {
   return resolve(dirname(fileURLToPath(import.meta.url)), "../..");
@@ -25,112 +28,9 @@ function ensureDir(projectRoot: string, dir: string): boolean {
 }
 
 /**
- * 生成 Cursor Agent 骨架（纯 .md）
+ * 生成全局配置追加段落（CLAUDE.md / AGENTS.md）
  */
-function generateCursorAgentSkeleton(name: string): string {
-  return [
-    `# ${name}`,
-    ``,
-    `你是 ${name} 专家 SubAgent。`,
-    ``,
-    `## 职责`,
-    ``,
-    `<!-- 描述此 Agent 的具体职责 -->`,
-    ``,
-    `## 规范`,
-    ``,
-    `<!-- 此 Agent 遵循的编码/工作规范 -->`,
-    ``,
-    `## 约束`,
-    ``,
-    `- 不做超出职责范围的工作`,
-    `- 遇到不确定的问题时暂停并汇报`,
-    ``,
-  ].join("\n");
-}
-
-/**
- * 生成 Claude Code Agent 骨架（.md + YAML frontmatter）
- */
-function generateClaudeCodeAgentSkeleton(name: string): string {
-  return [
-    `---`,
-    `name: ${name}`,
-    `description: "${name} 专家子代理"`,
-    `tools:`,
-    `  - Read`,
-    `  - Write`,
-    `  - Edit`,
-    `  - Bash`,
-    `  - Glob`,
-    `  - Grep`,
-    `model: sonnet`,
-    `---`,
-    ``,
-    `# ${name}`,
-    ``,
-    `你是 ${name} 专家子代理。`,
-    ``,
-    `## 职责`,
-    ``,
-    `<!-- 描述此 Agent 的具体职责 -->`,
-    ``,
-    `## 规范`,
-    ``,
-    `<!-- 此 Agent 遵循的编码/工作规范 -->`,
-    ``,
-    `## 约束`,
-    ``,
-    `- 不做超出职责范围的工作`,
-    `- 遇到不确定的问题时暂停并汇报`,
-    ``,
-  ].join("\n");
-}
-
-/**
- * 生成 Codex Agent 骨架（.toml）
- */
-function generateCodexAgentSkeleton(name: string): string {
-  return [
-    `name = "${name}"`,
-    `description = "${name} 专家 Agent"`,
-    `model = "gpt-5.3-codex"`,
-    `sandbox_mode = "workspace-write"`,
-    `developer_instructions = """`,
-    `你是 ${name} 专家 Agent。`,
-    ``,
-    `## 职责`,
-    ``,
-    `# 描述此 Agent 的具体职责`,
-    ``,
-    `## 规范`,
-    ``,
-    `# 此 Agent 遵循的编码/工作规范`,
-    ``,
-    `## 约束`,
-    ``,
-    `- 不做超出职责范围的工作`,
-    `- 遇到不确定的问题时暂停并汇报`,
-    `"""`,
-    ``,
-  ].join("\n");
-}
-
-function generateAgentSkeleton(adapter: AdapterName, name: string): string {
-  switch (adapter) {
-    case "cursor":
-      return generateCursorAgentSkeleton(name);
-    case "claude-code":
-      return generateClaudeCodeAgentSkeleton(name);
-    case "codex":
-      return generateCodexAgentSkeleton(name);
-  }
-}
-
-/**
- * 生成 CLAUDE.md pipeline 编排章节
- */
-function generateClaudeMdSection(): string {
+function generateGlobalConfigSection(adapter: AdapterName, paths: ReturnType<typeof getAdapterPaths>): string {
   return [
     ``,
     `## AI Pipeline 编排`,
@@ -138,40 +38,15 @@ function generateClaudeMdSection(): string {
     `本项目使用 [ai-pipeline](https://github.com/toheart/ai-pipeline) 进行 AI 开发流水线编排。`,
     ``,
     `- 流水线定义：\`.pipeline/*.ts\``,
-    `- Agent 定义：\`.claude/agents/*.md\``,
-    `- 编排器 Skill：\`.claude/skills/orchestrator-*/SKILL.md\``,
+    `- Agent 定义：\`${paths.agentsDir}/*${paths.agentFileExt}\``,
+    `- 编排器 Skill：\`${paths.skillsDir}/orchestrator-*/SKILL.md\``,
     `- Dashboard：\`http://127.0.0.1:19090/\``,
     ``,
     `### 常用命令`,
     ``,
     `\`\`\`bash`,
-    `npx ai-pipeline generate --adapter claude-code   # 编译流水线`,
+    `npx ai-pipeline generate --adapter ${adapter}   # 编译流水线`,
     `npx ai-pipeline serve                            # 启动看板`,
-    `\`\`\``,
-    ``,
-  ].join("\n");
-}
-
-/**
- * 生成 AGENTS.md pipeline 编排章节
- */
-function generateAgentsMdSection(): string {
-  return [
-    ``,
-    `## AI Pipeline 编排`,
-    ``,
-    `本项目使用 [ai-pipeline](https://github.com/toheart/ai-pipeline) 进行 AI 开发流水线编排。`,
-    ``,
-    `- 流水线定义：\`.pipeline/*.ts\``,
-    `- Agent 定义：\`.codex/agents/*.toml\``,
-    `- 编排器 Skill：\`.codex/skills/orchestrator-*/SKILL.md\``,
-    `- Dashboard：\`http://127.0.0.1:19090/\``,
-    ``,
-    `### 常用命令`,
-    ``,
-    `\`\`\`bash`,
-    `npx ai-pipeline generate --adapter codex   # 编译流水线`,
-    `npx ai-pipeline serve                      # 启动看板`,
     `\`\`\``,
     ``,
   ].join("\n");
@@ -188,11 +63,17 @@ export async function runInit(args: string[]): Promise<void> {
   const projectRoot = process.cwd();
   const pkgRoot = getPackageRoot();
 
-  console.log(`╭─ AI Pipeline · ${adapter} adapter ──────────────────╮`);
-  console.log(`│  Package:  ${pkgRoot}`);
-  console.log(`│  Project:  ${projectRoot}`);
-  console.log(`│  Output:   ${paths.configRoot}/`);
-  console.log(`╰──────────────────────────────────────────────────────╯`);
+  // ═══════════════════════════════════════════════════
+  // Phase 1: 项目上下文扫描
+  // ═══════════════════════════════════════════════════
+  console.log(`\n[1/3] 扫描项目上下文...\n`);
+  const ctx = scanProject(projectRoot);
+  console.log(formatContextSummary(ctx));
+
+  // ═══════════════════════════════════════════════════
+  // Phase 2: 目录和配置 scaffold（程序自动）
+  // ═══════════════════════════════════════════════════
+  console.log(`\n[2/3] 初始化 ${adapter} adapter 配置...\n`);
 
   const adapterDir = join(pkgRoot, "src", "adapters", adapter);
   if (!existsSync(adapterDir)) {
@@ -200,7 +81,7 @@ export async function runInit(args: string[]): Promise<void> {
     process.exit(1);
   }
 
-  // 创建目录——使用 AdapterPaths 动态分叉
+  // 创建目录
   const dirs = [
     ".pipeline",
     paths.agentsDir,
@@ -209,19 +90,15 @@ export async function runInit(args: string[]): Promise<void> {
     paths.hooksDir,
     paths.stateDir,
     paths.pipelinesDir,
-    "templates",
   ];
-
   for (const d of dirs) {
     ensureDir(projectRoot, d);
   }
 
-  // 部署 hooks.json
+  // 部署 hooks 配置（使用相对路径）
   const hooksTpl = join(adapterDir, "hooks.json.tpl");
   if (existsSync(hooksTpl)) {
-    let content = readFileSync(hooksTpl, "utf-8");
-    content = content.replace(/\$\{PROJECT_ROOT\}/g, projectRoot);
-
+    const content = readFileSync(hooksTpl, "utf-8");
     const target = join(projectRoot, paths.hooksConfig);
     mkdirSync(dirname(target), { recursive: true });
     writeFileSync(target, content);
@@ -233,7 +110,6 @@ export async function runInit(args: string[]): Promise<void> {
   if (existsSync(hookScriptsDir)) {
     const targetDir = join(projectRoot, paths.hooksDir);
     mkdirSync(targetDir, { recursive: true });
-
     for (const f of readdirSync(hookScriptsDir)) {
       copyFileSync(join(hookScriptsDir, f), join(targetDir, f));
       console.log(`  deployed ${paths.hooksDir}/${f}`);
@@ -252,18 +128,6 @@ export async function runInit(args: string[]): Promise<void> {
     }
   }
 
-  // 部署示例模板
-  const templatesDir = join(pkgRoot, "templates");
-  if (existsSync(templatesDir)) {
-    for (const f of readdirSync(templatesDir).filter((f) => f.endsWith(".yaml"))) {
-      const target = join(projectRoot, "templates", f);
-      if (!existsSync(target)) {
-        copyFileSync(join(templatesDir, f), target);
-        console.log(`  deployed templates/${f}`);
-      }
-    }
-  }
-
   // 确保 .pipeline/ 目录被 Node 识别为 ESM 模块
   const pipelinePkg = join(projectRoot, ".pipeline", "package.json");
   if (!existsSync(pipelinePkg)) {
@@ -271,72 +135,72 @@ export async function runInit(args: string[]): Promise<void> {
     console.log("  created .pipeline/package.json (ESM marker)");
   }
 
-  // 创建示例 pipeline 定义
-  const examplePipeline = join(projectRoot, ".pipeline", "feature.ts");
-  if (!existsSync(examplePipeline)) {
-    writeFileSync(
-      examplePipeline,
-      [
-        `import { pipeline, stage, gate, parallel } from "@toheart/ai-pipeline";`,
-        ``,
-        `export default pipeline("feature", async (ctx) => {`,
-        `  await stage("explore", { agent: "explorer" });`,
-        `  await stage("propose", { skill: "openspec-propose" });`,
-        `  await gate("确认方案设计");`,
-        ``,
-        `  await stage("implement", { agent: "implementer" });`,
-        `  await gate("确认代码质量");`,
-        `  await stage("archive", { skill: "openspec-archive" });`,
-        `});`,
-        ``,
-      ].join("\n"),
-    );
-    console.log(`  created .pipeline/feature.ts (example)`);
-  }
+  // ═══════════════════════════════════════════════════
+  // Phase 3: 基于项目上下文生成 Agent + Pipeline（AI 级别）
+  // ═══════════════════════════════════════════════════
+  console.log(`\n[3/3] 基于项目上下文生成 Agent 和 Pipeline...\n`);
 
-  // 生成示例 Agent 骨架
-  const exampleAgents = ["explorer", "implementer"];
-  for (const name of exampleAgents) {
-    const agentFile = join(projectRoot, paths.agentsDir, `${name}${paths.agentFileExt}`);
+  // 生成 Agent 定义——根据项目扫描结果自动裁剪角色和 prompt
+  const agents = generateAgents(ctx, adapter);
+  for (const agent of agents) {
+    const agentFile = join(projectRoot, paths.agentsDir, agent.filename);
     if (!existsSync(agentFile)) {
-      writeFileSync(agentFile, generateAgentSkeleton(adapter, name));
-      console.log(`  created ${paths.agentsDir}/${name}${paths.agentFileExt} (skeleton)`);
+      writeFileSync(agentFile, agent.content);
+      console.log(`  created ${paths.agentsDir}/${agent.filename}`);
+    } else {
+      console.log(`  skipped ${paths.agentsDir}/${agent.filename} (already exists)`);
     }
   }
 
-  // Claude Code：追加 CLAUDE.md 编排章节
+  // 生成 Pipeline 定义——根据项目类型动态编排 stage
+  const pipelineFile = join(projectRoot, ".pipeline", "feature.ts");
+  if (!existsSync(pipelineFile)) {
+    writeFileSync(pipelineFile, generatePipelineDefinition(ctx));
+    console.log(`  created .pipeline/feature.ts`);
+  } else {
+    console.log(`  skipped .pipeline/feature.ts (already exists)`);
+  }
+
+  // 追加全局配置（CLAUDE.md / AGENTS.md）
+  const globalConfig = paths.globalConfig;
   if (adapter === "claude-code") {
-    const claudeMd = join(projectRoot, "CLAUDE.md");
-    if (existsSync(claudeMd)) {
-      const content = readFileSync(claudeMd, "utf-8");
-      if (!content.includes("AI Pipeline 编排")) {
-        writeFileSync(claudeMd, content + generateClaudeMdSection());
-        console.log(`  updated CLAUDE.md (appended pipeline section)`);
-      }
-    } else {
-      writeFileSync(claudeMd, `# Project Guide\n${generateClaudeMdSection()}`);
-      console.log(`  created CLAUDE.md`);
-    }
+    appendGlobalConfig(projectRoot, "CLAUDE.md", adapter, paths);
+  } else if (adapter === "codex") {
+    appendGlobalConfig(projectRoot, "AGENTS.md", adapter, paths);
   }
 
-  // Codex：追加 AGENTS.md 编排章节
-  if (adapter === "codex") {
-    const agentsMd = join(projectRoot, "AGENTS.md");
-    if (existsSync(agentsMd)) {
-      const content = readFileSync(agentsMd, "utf-8");
-      if (!content.includes("AI Pipeline 编排")) {
-        writeFileSync(agentsMd, content + generateAgentsMdSection());
-        console.log(`  updated AGENTS.md (appended pipeline section)`);
-      }
-    } else {
-      writeFileSync(agentsMd, `# Project Guide\n${generateAgentsMdSection()}`);
-      console.log(`  created AGENTS.md`);
-    }
-  }
-
+  // 输出摘要
+  console.log(`\n╭─ 初始化完成 ──────────────────────────────────────╮`);
+  console.log(`│  Adapter:    ${adapter}`);
+  console.log(`│  项目类型:   ${ctx.projectType}`);
+  console.log(`│  技术栈:     ${ctx.stack.join(", ") || "(未检测到)"}`);
+  console.log(`│  Agent 数:   ${agents.length} (${agents.map((a) => a.name).join(", ")})`);
+  console.log(`│  Pipeline:   .pipeline/feature.ts`);
+  console.log(`╰──────────────────────────────────────────────────────╯`);
   console.log();
-  console.log(`Done! Next steps:`);
-  console.log(`  1. Edit .pipeline/feature.ts to define your pipeline`);
-  console.log(`  2. npx ai-pipeline generate --adapter ${adapter}`);
-  console.log(`  3. npx ai-pipeline serve`);
+  console.log(`下一步：`);
+  console.log(`  1. 检查 ${paths.agentsDir}/ 中的 Agent 定义，按需调整`);
+  console.log(`  2. 编辑 .pipeline/feature.ts 调整流水线编排`);
+  console.log(`  3. npx ai-pipeline generate --adapter ${adapter}`);
+  console.log(`  4. npx ai-pipeline serve`);
+}
+
+function appendGlobalConfig(
+  projectRoot: string,
+  filename: string,
+  adapter: AdapterName,
+  paths: ReturnType<typeof getAdapterPaths>,
+): void {
+  const filePath = join(projectRoot, filename);
+  const section = generateGlobalConfigSection(adapter, paths);
+  if (existsSync(filePath)) {
+    const content = readFileSync(filePath, "utf-8");
+    if (!content.includes("AI Pipeline 编排")) {
+      writeFileSync(filePath, content + section);
+      console.log(`  updated ${filename} (appended pipeline section)`);
+    }
+  } else {
+    writeFileSync(filePath, `# Project Guide\n${section}`);
+    console.log(`  created ${filename}`);
+  }
 }

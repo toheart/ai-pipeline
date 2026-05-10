@@ -6,7 +6,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "python3 \"${PROJECT_ROOT}/.codex/hooks/session-start.py\"",
+            "command": "python3 .codex/hooks/session-start.py",
             "statusMessage": "Loading pipeline context"
           }
         ]
@@ -18,7 +18,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "python3 \"${PROJECT_ROOT}/.codex/hooks/pre-tool-use.py\"",
+            "command": "python3 .codex/hooks/pre-tool-use.py",
             "statusMessage": "Pipeline safety check"
           }
         ]
@@ -30,7 +30,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "python3 \"${PROJECT_ROOT}/.codex/hooks/permission-request.py\"",
+            "command": "python3 .codex/hooks/permission-request.py",
             "statusMessage": "Pipeline permission check"
           }
         ]
@@ -42,7 +42,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "python3 \"${PROJECT_ROOT}/.codex/hooks/post-tool-use.py\"",
+            "command": "python3 .codex/hooks/post-tool-use.py",
             "statusMessage": "Tracking pipeline progress"
           }
         ]
@@ -53,7 +53,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "python3 \"${PROJECT_ROOT}/.codex/hooks/stop.py\"",
+            "command": "python3 .codex/hooks/stop.py",
             "timeout": 10
           }
         ]

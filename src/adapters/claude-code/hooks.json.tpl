@@ -6,7 +6,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "python3 \"${PROJECT_ROOT}/.claude/hooks/session-start.py\"",
+            "command": "python3 .claude/hooks/session-start.py",
             "statusMessage": "Loading pipeline context"
           }
         ]
@@ -18,7 +18,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "python3 \"${PROJECT_ROOT}/.claude/hooks/pre-tool-use.py\"",
+            "command": "python3 .claude/hooks/pre-tool-use.py",
             "statusMessage": "Pipeline safety check"
           }
         ]
@@ -30,7 +30,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "python3 \"${PROJECT_ROOT}/.claude/hooks/post-tool-use.py\"",
+            "command": "python3 .claude/hooks/post-tool-use.py",
             "statusMessage": "Tracking pipeline progress"
           }
         ]
@@ -41,7 +41,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "python3 \"${PROJECT_ROOT}/.claude/hooks/stop.py\"",
+            "command": "python3 .claude/hooks/stop.py",
             "timeout": 10
           }
         ]
